@@ -14,26 +14,37 @@ datasource db {
 }
 
 model Account {
-  id            Int     @id @default(autoincrement())
-  email         String  @unique
+  id            Int         @id @default(autoincrement())
+  email         String      @unique
   name          String?
   access_token  String?
   refresh_token String?
   type          String?
-  autoSend      Boolean @default(false)
+  autoSend      Boolean     @default(false)
   Mail          Mail[]
+  MailReply     MailReply[]
 }
 
 model Mail {
-  id        String  @id @default(cuid())
+  id        String   @id @default(cuid())
   messageId String
   from      String
   subject   String
   snippet   String
   email     String
   label     String
-  account   Account @relation(fields: [accountId], references: [id])
-  accountId Int 
+  account   Account  @relation(fields: [accountId], references: [id])
+  accountId Int
   createdAt DateTime @default(now())
 }
 
+model MailReply {
+  id        String   @id @default(cuid())
+  fromEmail String
+  toEmail   String
+  subject   String
+  content   String
+  account   Account  @relation(fields: [accountId], references: [id])
+  accountId Int
+  createdAt DateTime @default(now())
+}
