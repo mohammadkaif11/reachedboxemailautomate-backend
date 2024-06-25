@@ -11,6 +11,8 @@ export const extractGoogleEmails = async (
   accountId: number
 ) => {
   try {
+    console.log("[AccountId] ", accountId);
+
     const oauth2Client = new google.auth.OAuth2(
       process.env.GOOGLE_CLIENT_ID,
       process.env.GOOGLE_CLIENT_SECRET,
@@ -70,6 +72,7 @@ export const extractGoogleEmails = async (
     );
 
     await saveExtractMails(validMessages as MailType[], accountId);
+
     console.log("[messages] ", messages);
     console.log("[detailedMessages] ", detailedMessages);
     console.log("[validMessages] ", validMessages);

@@ -1,10 +1,7 @@
 import { MailType } from "../module";
 import { db } from "./db";
 
-export const saveExtractMails = async (
-  mails: MailType[],
-  accountId: number
-) => {
+export async function saveExtractMails(mails: MailType[], accountId: number) {
   try {
     if (mails.length === 0) {
       console.log("[saveExtractMails] No mails to save.");
@@ -34,7 +31,7 @@ export const saveExtractMails = async (
     );
     throw error;
   }
-};
+}
 
 export async function getMailbyMessageId(messageId: string) {
   try {
@@ -52,6 +49,33 @@ export async function getMailbyMessageId(messageId: string) {
       `[getMailbyMessageId] Error while fetching message by messageId ${messageId}:`,
       error
     );
+    throw error;
+  }
+}
+
+export async function saveMailReply(
+  fromMail: string,
+  toMail: string,
+  subject: string,
+  body: string
+) {
+  try {
+    const account = await db.account.findUnique({ where: { email: toMail } });
+
+    if (!account) throw new Error("Account Not Found");
+
+    await db.mailReply.create({
+      data: {
+        fromEmail: fromMail,
+        toEmail: toMail,
+        content: body,
+        subject: subject,
+        accountId: account.id,
+      },
+    });
+
+  } catch (error) {
+    console.error(`[saveMailReply] Error while saving the mail`, error);
     throw error;
   }
 }
