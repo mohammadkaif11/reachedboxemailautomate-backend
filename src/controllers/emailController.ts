@@ -6,7 +6,11 @@ import {
   addFetchEmailsJobInterval,
   deleteFetchEmailsJob,
 } from "../worker/queue";
-import { CreateJOBQueueFetchEmailsInput, SendMailAPIRequestBody } from "../module";
+import {
+  CreateJOBQueueFetchEmailsInput,
+  SendMailAPIRequestBody,
+} from "../module";
+import { saveMailReply } from "../utils/database";
 
 export const getAccounts = async (req: Request, res: Response) => {
   try {
@@ -20,8 +24,20 @@ export const getAccounts = async (req: Request, res: Response) => {
 
 export const getAllExtractMails = async (req: Request, res: Response) => {
   try {
-    const mailsData = await db.mail.findMany({});
+    const mailsData = await db.mail.findMany({ include: { account: true } });
     return res.status(200).json({ data: mailsData });
+  } catch (error: any) {
+    console.log("Error while getting Mails:", error.message);
+    return res.status(500).json({ message: "Internal Server Error" });
+  }
+};
+
+export const getMailReply = async (req: Request, res: Response) => {
+  try {
+    const mailReplys = await db.mailReply.findMany({
+      include: { account: true },
+    });
+    return res.status(200).json({ data: mailReplys });
   } catch (error: any) {
     console.log("Error while getting Mails:", error.message);
     return res.status(500).json({ message: "Internal Server Error" });
@@ -71,7 +87,7 @@ export const generateMailReply = async (req: Request, res: Response) => {
     const mailId = req.params.id;
 
     if (!mailId) {
-      throw new Error("MailId is required")
+      throw new Error("MailId is required");
     }
 
     const mail = await db.mail.findUnique({
@@ -80,7 +96,7 @@ export const generateMailReply = async (req: Request, res: Response) => {
     });
 
     if (!mail) {
-      throw new Error("Mail Not found")
+      throw new Error("Mail Not found");
     }
 
     const generatedMailString = await writeEmail(
@@ -95,7 +111,7 @@ export const generateMailReply = async (req: Request, res: Response) => {
 
     const sanitizedMailString = generatedMailString.replace(/\n/g, "\\n");
     const parseGeneratedMail = JSON.parse(sanitizedMailString);
-    
+
     return res.status(200).send({ data: parseGeneratedMail, mail });
   } catch (error) {
     console.log("Error while generating mail Reply:", error);
@@ -106,16 +122,25 @@ export const generateMailReply = async (req: Request, res: Response) => {
 export const sendEmailToUser = async (req: Request, res: Response) => {
   try {
     const data: SendMailAPIRequestBody = req.body;
-    if(data.AIResponse.mail.account.type=="Gmail"){
+    if (data.AIResponse.mail.account.type == "Gmail") {
+      //Send email to user
       await sendingGoogleMail(
         data.AIResponse.mail.account.refresh_token,
         data.AIResponse.mail.email,
         data.AIResponse.mail.account.email,
-        data.AIResponse.data.content,
-        data.AIResponse.data.subject
+        data.AIResponse.data.subject,
+        data.AIResponse.data.content
       );
-    }else{
-        // handle other email providers
+
+      //save reply Mail In Database
+      await saveMailReply(
+        data.AIResponse.mail.email,
+        data.AIResponse.mail.account.email,
+        data.AIResponse.data.subject,
+        data.AIResponse.data.content
+      );
+    } else {
+      // handle other email providers
     }
     res.status(200).send({ data: "Send Mail successfully" });
   } catch (error) {
@@ -123,5 +148,3 @@ export const sendEmailToUser = async (req: Request, res: Response) => {
     return res.status(500).json({ message: "Internal Server Error" });
   }
 };
-
-
