@@ -8,6 +8,7 @@ const outlookRoutes = require("./routers/outlookRoutes");
 const emailRoutes = require("./routers/emailRoutes");
 import cors from "cors";
 import { taskQueue } from "./worker/queue";
+import { sendingOutLookiEmail } from "./utils/outlook";
 const app = express();
 
 app.use(express.json());
@@ -23,7 +24,6 @@ app.use("/admin/queues", router);
 app.use("/api/google", googleRoutes);
 app.use("/api/outlook", outlookRoutes);
 app.use("/api", emailRoutes);
-
 
 
 app.listen(PORT, () => {

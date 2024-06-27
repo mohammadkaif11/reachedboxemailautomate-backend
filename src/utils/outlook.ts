@@ -1,15 +1,14 @@
-import {
-  MailType,
-  OutLookMail,
-  OutLookMailWithCategory,
-} from "../module";
+import { MailType, OutLookMail, OutLookMailWithCategory } from "../module";
 import { getMailbyMessageId, saveExtractMails } from "./database";
 import { db } from "./db";
 import { getCategoryOfMail } from "./open-ai";
 
-export const extractOutlookMail = async (accountId: number,access_token:string|null) => {
+export const extractOutlookMail = async (
+  accountId: number,
+  access_token: string | null
+) => {
   try {
-    if(!access_token){
+    if (!access_token) {
       throw new Error("Access token not found");
     }
     const currentTime = new Date().toISOString();
@@ -29,7 +28,8 @@ export const extractOutlookMail = async (accountId: number,access_token:string|n
       const data = await response.json();
       const mails = data.value as OutLookMail[];
       const filteredMails = await filterOutLookMailAlreadySaveInDb(mails);
-      const mailsWithCategory: OutLookMailWithCategory[] = await Promise.all(filteredMails.map(async (mail: OutLookMail) => {
+      const mailsWithCategory: OutLookMailWithCategory[] = await Promise.all(
+        filteredMails.map(async (mail: OutLookMail) => {
           const categoryLabel =
             (await getCategoryOfMail(mail.bodyPreview, mail.subject)) || "";
           return {
@@ -47,7 +47,7 @@ export const extractOutlookMail = async (accountId: number,access_token:string|n
           };
         })
       );
-      await saveOutLookMailInDB(mailsWithCategory,accountId);
+      await saveOutLookMailInDB(mailsWithCategory, accountId);
       return mailsWithCategory;
     } else {
       throw new Error(
@@ -58,7 +58,7 @@ export const extractOutlookMail = async (accountId: number,access_token:string|n
     console.log(
       `Error while getting outlook mail [getOutlookMail()]  ${error.message}`
     );
-    throw new Error(error)
+    throw new Error(error);
   }
 };
 
@@ -67,7 +67,56 @@ export const getIntrestedMail = async (mails: OutLookMailWithCategory[]) => {
   return InterestedMails;
 };
 
- const saveOutLookMailInDB = async (
+export const sendingOutLookiEmail = async (
+  access_token: string,
+  reciverEmail: string,
+  subject: string,
+  content: string
+) => {
+  try {
+    const endpoint = "https://graph.microsoft.com/v1.0/me/sendMail";
+    const email = {
+      message: {
+        subject: subject,
+        body: {
+          contentType: "Text",
+          content: content,
+        },
+        toRecipients: [
+          {
+            emailAddress: {
+              address: reciverEmail,
+            },
+          },
+        ],
+      },
+      "saveToSentItems": "false"
+    };
+
+    const response = await fetch(endpoint, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${access_token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(email),
+    });
+
+    if (!response.ok) {
+      const errorMessage = await response.json();
+      console.log(errorMessage)
+      throw new Error(`Error sending email: ${response.statusText}`);
+    }
+
+
+    console.log("[Sucesssfully send mail outlook]");
+  } catch (error) {
+    console.error("[Send outlook mail] Error:", error);
+    throw error;
+  }
+};
+
+const saveOutLookMailInDB = async (
   mails: OutLookMailWithCategory[],
   accountId: number
 ) => {
@@ -85,23 +134,23 @@ export const getIntrestedMail = async (mails: OutLookMailWithCategory[]) => {
 };
 
 const filterOutLookMailAlreadySaveInDb = async (mails: OutLookMail[]) => {
-    try {
-      const detailedMails = await Promise.all(
-        mails.map(async (mail) => {
-          const mailDb = await getMailbyMessageId(mail.id);
-          if (mailDb == null) {
-            return null;
-          } else {
-            return mail;
-          }
-        })
-      );
-      const validMails = detailedMails.filter((mail) => mail !== null);
-      return validMails;
-    } catch (error: any) {
-      console.log(
-        `Error while filter  outlook mail [filterOutLookMailAlreadySaveInDb()]  ${error.message}`
-      );
-      throw new error();
-    }
+  try {
+    const detailedMails = await Promise.all(
+      mails.map(async (mail) => {
+        const mailDb = await getMailbyMessageId(mail.id);
+        if (mailDb == null) {
+          return null;
+        } else {
+          return mail;
+        }
+      })
+    );
+    const validMails = detailedMails.filter((mail) => mail !== null);
+    return validMails;
+  } catch (error: any) {
+    console.log(
+      `Error while filter  outlook mail [filterOutLookMailAlreadySaveInDb()]  ${error.message}`
+    );
+    throw new error();
+  }
 };

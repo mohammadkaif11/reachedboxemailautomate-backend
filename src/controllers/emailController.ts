@@ -11,6 +11,7 @@ import {
   SendMailAPIRequestBody,
 } from "../module";
 import { saveMailReply } from "../utils/database";
+import { sendingOutLookiEmail } from "../utils/outlook";
 
 export const getAccounts = async (req: Request, res: Response) => {
   try {
@@ -121,17 +122,31 @@ export const sendEmailToUser = async (req: Request, res: Response) => {
         data.AIResponse.data.subject,
         data.AIResponse.data.content
       );
-
-      //save reply Mail In Database
       await saveMailReply(
         data.AIResponse.mail.email,
         data.AIResponse.mail.account.id,
         data.AIResponse.data.subject,
         data.AIResponse.data.content
       );
-    } else {
+      //save reply Mail In Database
+    } else if (data.AIResponse.mail.account.type == "Outlook") {
+      await sendingOutLookiEmail(
+        data.AIResponse.mail.account.access_token,
+        data.AIResponse.mail.email,
+        data.AIResponse.data.subject,
+        data.AIResponse.data.content
+      );
+      await saveMailReply(
+        data.AIResponse.mail.email,
+        data.AIResponse.mail.account.id,
+        data.AIResponse.data.subject,
+        data.AIResponse.data.content
+      );
       // handle other email providers
+    }else{
+      console.log("Not Provider exists")
     }
+
     res.status(200).send({ data: "Send Mail successfully" });
   } catch (error) {
     console.log("Error while sending mail to User:", error);

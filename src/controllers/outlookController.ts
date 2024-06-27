@@ -30,6 +30,7 @@ export const outlookAuth = async (req: Request, res: Response) => {
         "offline_access",
         "Mail.ReadWrite",
         "Mail.ReadWrite.Shared",
+        "Mail.Send"
       ],
       redirectUri,
     };
@@ -92,6 +93,7 @@ export const outlookCallback = async (req: Request, res: Response) => {
         "offline_access",
         "Mail.ReadWrite",
         "Mail.ReadWrite.Shared",
+        "Mail.Send"
       ],
       forceRefresh: false
     };
