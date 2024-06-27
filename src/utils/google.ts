@@ -1,17 +1,18 @@
-import { google } from "googleapis";
+import { gmail_v1, google } from "googleapis";
 import { getMailbyMessageId, saveExtractMails } from "./database";
 import { createMessage, extractEmailAddress } from "./helper";
 import { getCategoryOfMail, writeEmail } from "./open-ai";
 import { addEmailsInMailQueue, mailQueue } from "../worker/queue";
 import { CreateJOBQueueSendReplyInputType, MailType } from "../module";
 
-
-export const extractGoogleEmails = async (
-  refresh_token: string,
+export const extractGoogleMail = async (
+  refresh_token: string | null,
   accountId: number
 ) => {
   try {
-    console.log("[AccountId] ", accountId);
+    if (!refresh_token) {
+      throw new Error("Refresh token is required");
+    }
 
     const oauth2Client = new google.auth.OAuth2(
       process.env.GOOGLE_CLIENT_ID,
@@ -45,77 +46,13 @@ export const extractGoogleEmails = async (
       return [];
     }
 
-    const detailedMessages = await Promise.all(
-      messages.map(async (message) => {
-        if (message.id) {
-          const messagedb = await getMailbyMessageId(message.id);
-          if (messagedb != null) {
-            return null;
-          }
-          const details = await getGoogleMailDetailsbyMessageId(
-            gmailClient,
-            message.id
-          );
-          return details;
-        } else {
-          return null;
-        }
-      })
-    );
-
-    const validMessages = detailedMessages.filter(
-      (message) => message !== null
-    );
-
-    const InterestedMails = detailedMessages.filter(
-      (message) => message?.label === "Interested"
-    );
-
-    await saveExtractMails(validMessages as MailType[], accountId);
-
-    console.log("[messages] ", messages);
-    console.log("[detailedMessages] ", detailedMessages);
-    console.log("[validMessages] ", validMessages);
-    console.log("[InterestedMails] ", InterestedMails);
-
-    return InterestedMails;
+    const validGmails=await filterGmailAlreadySaveInDb(messages);
+    const detailedGmails = await getEachGmailInDetail(validGmails,gmailClient);
+    await saveExtractMails(detailedGmails, accountId);
+   
+    return detailedGmails;
   } catch (error) {
-    console.error("[extractGoogleEmails] Error:", error);
-    throw error;
-  }
-};
-
-const getGoogleMailDetailsbyMessageId = async (
-  gmailClient: any,
-  messageId: string
-) => {
-  try {
-    const res = await gmailClient.users.messages.get({
-      userId: "me",
-      id: messageId,
-    });
-    const headers = res.data.payload.headers;
-
-    const subject: string =
-      headers.find((header: any) => header.name === "Subject")?.value || "";
-    const from: string =
-      headers.find((header: any) => header.name === "From")?.value || "";
-    const snippet: string = res.data.snippet || "";
-    const email: string | null = extractEmailAddress(from) || "";
-    const categoryLabel: string | null = (await getCategoryOfMail(snippet, subject)) || "";
-    return {
-      messageId,
-      from,
-      subject,
-      snippet,
-      email,
-      label: categoryLabel,
-    };
-  } catch (error) {
-    console.error(
-      `[getGoogleMailDetailsbyMessageId] Error while fetching message details for messageId ${messageId}:`,
-      error
-    );
+    console.error("Error while getting gmail [extractGoogleMail()]", error);
     throw error;
   }
 };
@@ -156,14 +93,16 @@ export const sendingGoogleMail = async (
         raw: encodedMessage,
       },
     });
-    console.log('[Sucesssfully send mail google]');
+    console.log("[Sucesssfully send mail google]");
   } catch (error) {
     console.error("[Send google mail] Error:", error);
     throw error;
   }
 };
 
-export const generateEmailsAndSaveIntoQueue = (data: CreateJOBQueueSendReplyInputType) => {
+export const generateEmailsAndSaveIntoQueue = (
+  data: CreateJOBQueueSendReplyInputType
+) => {
   const interestedMails = data.mails;
   const user = data.user;
 
@@ -175,18 +114,18 @@ export const generateEmailsAndSaveIntoQueue = (data: CreateJOBQueueSendReplyInpu
         interestedMail.from
       );
 
-      if(!mailContentString){
+      if (!mailContentString) {
         throw new Error("Mail contnent not found");
       }
 
       const sanitizedMailString = mailContentString.replace(/\n/g, "\\n");
       const parseGeneratedMail = JSON.parse(sanitizedMailString);
-  
+
       const queueData = {
         fromEmail: interestedMail.email,
         subject: parseGeneratedMail.subject as string,
         content: parseGeneratedMail.content as string,
-        user:user
+        user: user,
       };
 
       await addEmailsInMailQueue(queueData);
@@ -197,5 +136,89 @@ export const generateEmailsAndSaveIntoQueue = (data: CreateJOBQueueSendReplyInpu
       );
     }
   });
+};
+
+export const FilterIntrestedMail = (gmails: MailType[]) => {
+  const InterestedGmail = gmails.filter(
+    (gmail) => gmail?.label === "Interested"
+  );
+  return InterestedGmail;
+};
+
+const getGoogleMailDetailsbyMessageId = async (
+  gmailClient: any,
+  messageId: string
+) => {
+  try {
+    const res = await gmailClient.users.messages.get({
+      userId: "me",
+      id: messageId,
+    });
+    const headers = res.data.payload.headers;
+
+    const subject: string =
+      headers.find((header: any) => header.name === "Subject")?.value || "";
+    const from: string =
+      headers.find((header: any) => header.name === "From")?.value || "";
+    const snippet: string = res.data.snippet || "";
+    const email: string | null = extractEmailAddress(from) || "";
+    const categoryLabel: string | null =
+      (await getCategoryOfMail(snippet, subject)) || "";
+    return {
+      messageId,
+      from,
+      subject,
+      snippet,
+      email,
+      label: categoryLabel,
+    };
+  } catch (error) {
+    console.error(
+      `[getGoogleMailDetailsbyMessageId] Error while fetching message details for messageId ${messageId}:`,
+      error
+    );
+    throw error;
+  }
+};
+
+const filterGmailAlreadySaveInDb = async (mails: gmail_v1.Schema$Message[]) => {
+  const mailCheckInDb = await Promise.all(
+    mails.map(async (mail) => {
+      if (mail.id) {
+        const messagedb = await getMailbyMessageId(mail.id);
+        if (messagedb) {
+          return null;
+        } else {
+          return mail;
+        }
+      } else {
+        return null;
+      }
+    })
+  );
+  const validGmail = mailCheckInDb.filter((mail) => mail !== null);
+
+  return validGmail;
+};
+
+const getEachGmailInDetail = async (
+  mails: gmail_v1.Schema$Message[],
+  gmailClient: any
+) => {
+  const mailDetails = await Promise.all(
+    mails.map(async (message) => {
+      const details = await getGoogleMailDetailsbyMessageId(
+        gmailClient,
+        message.id as string
+      );
+      return details;
+    })
+  );
+  return mailDetails;
+};
+
+const filterNullGmail = (gmails: MailType[]) => {
+  const validGmail = gmails.filter((gmail) => gmail !== null);
+  return validGmail;
 };
 

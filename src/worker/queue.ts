@@ -1,6 +1,7 @@
 import Redis from "ioredis";
 import {
-  extractGoogleEmails,
+  extractGoogleMail,
+  FilterIntrestedMail,
   generateEmailsAndSaveIntoQueue,
 } from "../utils/google";
 import {
@@ -8,10 +9,13 @@ import {
   MailType,
   CreateJOBQueueSendReplyInputType,
   AddMAILINQUEUE,
+  QueueInputDataInterface,
 } from "../module";
 const REDIS_URL =
   "rediss://red-cps056l6l47c73dtg8tg:4pyDNHpRV4WcxdUIg1N58rTTy35Yk5A8@oregon-redis.render.com:6379";
 import { Queue, Worker } from "bullmq";
+import { db } from "../utils/db";
+import { extractOutlookMail, getIntrestedMail } from "../utils/outlook";
 
 export const Redisconnection = new Redis(REDIS_URL, {
   maxRetriesPerRequest: null,
@@ -25,13 +29,14 @@ export const mailQueue = new Queue("mailQueue", {
   connection: Redisconnection,
 });
 
-export async function addFetchEmailsJobInterval(
-  queueData: CreateJOBQueueFetchEmailsInput
-) {
+export async function addFetchEmailsJobInterval(accoundId: number) {
+  const queueData: QueueInputDataInterface = {
+    accoundId: accoundId,
+  };
   await taskQueue.add("fetchEmails", queueData, {
     repeat: {
       every: 600000,
-      jobId: String(queueData.id),
+      jobId: String(accoundId),
     },
   });
 }
@@ -72,23 +77,25 @@ const taskWorker = new Worker(
     try {
       switch (job.name) {
         case "fetchEmails":
-          const queueData: CreateJOBQueueFetchEmailsInput = job.data;
-
-          if (queueData.type == "Gmail") {
-            const interestedMail = await extractGoogleEmails(
-              queueData.refreshToken,
-              queueData.id
-            );
-
-            const validInterestedMail = interestedMail.filter(
-              (message) => message !== null
-            );
+          const queueData: QueueInputDataInterface = job.data;
+          const account=await db.account.findUnique({where:{id:queueData.accoundId}});
+          if (account?.type == "Gmail") {
+            console.log('Task worker in gmail process')
+            const mail = await extractGoogleMail(account?.refresh_token,account?.id);
+            const intrestedMail= FilterIntrestedMail(mail);
 
             //If Queue data auto send true then add into queue
-            if (validInterestedMail.length > 0 && queueData.autoSend) {
-              await addSendReplyJob(validInterestedMail, queueData);
+            if (intrestedMail.length > 0 && account.autoSend) {
+
             }
-          } else if (queueData.type == "Outlook") {
+          } else if (account?.type == "Outlook") {
+            console.log('Task worker in outlook process')
+            const mail=await extractOutlookMail(account.id,account?.access_token);
+            const intrestedMail=await getIntrestedMail(mail)
+            //Push all IntrestedMail into queue
+            if(intrestedMail.length > 0 && account.autoSend) {
+
+            }
           }
           // for any provider
           break;

@@ -2,7 +2,6 @@ import { Request, Response } from "express";
 import { google } from "googleapis";
 import { db } from "../utils/db";
 import { addFetchEmailsJobInterval } from "../worker/queue";
-import { CreateJOBQueueFetchEmailsInput } from "../module";
 
 export const googleAuth = (req: Request, res: Response) => {
   try {
@@ -42,7 +41,7 @@ export const googleCallback = async (req: Request, res: Response) => {
         .redirect(`${process.env.BASE_URL}/email-accounts?data=already_signed`);
     }
 
-    // Extract email from the ID token payload
+      // Extract email from the ID token payload
     const ticket = await oauth2Client.verifyIdToken({
       idToken: tokens.id_token as string,
       audience: process.env.GOOGLE_CLIENT_ID,
@@ -50,7 +49,7 @@ export const googleCallback = async (req: Request, res: Response) => {
 
     const payload = ticket.getPayload();
     const email = payload?.email;
-    const name = payload?.name;
+    const name = payload?.email;
 
     if (!email) {
       throw new Error("Email not found in token payload ");
@@ -61,7 +60,7 @@ export const googleCallback = async (req: Request, res: Response) => {
         access_token: tokens.access_token,
         refresh_token: tokens.refresh_token,
         email: email,
-        name: name ? name : email,
+        name: name ,
         type: "Gmail",
       },
     });
@@ -70,18 +69,7 @@ export const googleCallback = async (req: Request, res: Response) => {
       throw new Error("Account not");
     }
 
-    //Add the job from queue
-    const quequeInput: CreateJOBQueueFetchEmailsInput = {
-      id: account.id,
-      type: account.type || "",
-      accessToken: account?.access_token || "",
-      refreshToken: account?.refresh_token || "",
-      mail: account.email,
-      autoSend: account?.autoSend,
-    };
-
-
-    await addFetchEmailsJobInterval(quequeInput);
+    await addFetchEmailsJobInterval(account.id);
 
     return res
       .status(300)
@@ -93,4 +81,3 @@ export const googleCallback = async (req: Request, res: Response) => {
       .redirect(`${process.env.BASE_URL}/email-accounts?error=InternalError`);
   }
 };
-

@@ -54,20 +54,20 @@ export async function getMailbyMessageId(messageId: string) {
 }
 
 export async function saveMailReply(
-  fromMail: string,
-  toMail: string,
+  toEmail: string,
+  accountId:number,
   subject: string,
   body: string
 ) {
   try {
-    const account = await db.account.findUnique({ where: { email: toMail } });
+    const account = await db.account.findUnique({ where: { id: accountId } });
 
     if (!account) throw new Error("Account Not Found");
 
     await db.mailReply.create({
       data: {
-        fromEmail: fromMail,
-        toEmail: toMail,
+        fromEmail: account.email,
+        toEmail: toEmail,
         content: body,
         subject: subject,
         accountId: account.id,

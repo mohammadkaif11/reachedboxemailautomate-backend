@@ -61,19 +61,9 @@ export const updateAutoSend = async (req: Request, res: Response) => {
       where: { id: id },
     });
 
-    const quequeInput: CreateJOBQueueFetchEmailsInput = {
-      id: account.id,
-      type: account.type || "",
-      accessToken: account?.access_token || "",
-      refreshToken: account?.refresh_token || "",
-      mail: account.email,
-      autoSend: account?.autoSend,
-    };
-
     const jobId = String(account.id);
     await deleteFetchEmailsJob(jobId);
-
-    await addFetchEmailsJobInterval(quequeInput);
+    await addFetchEmailsJobInterval(account.id);
 
     res.status(200).json({ data: "success" });
   } catch (error) {
@@ -135,7 +125,7 @@ export const sendEmailToUser = async (req: Request, res: Response) => {
       //save reply Mail In Database
       await saveMailReply(
         data.AIResponse.mail.email,
-        data.AIResponse.mail.account.email,
+        data.AIResponse.mail.account.id,
         data.AIResponse.data.subject,
         data.AIResponse.data.content
       );

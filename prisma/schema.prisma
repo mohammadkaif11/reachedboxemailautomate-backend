@@ -15,7 +15,7 @@ datasource db {
 
 model Account {
   id            Int         @id @default(autoincrement())
-  email         String      @unique
+  email         String      
   name          String?
   access_token  String?
   refresh_token String?

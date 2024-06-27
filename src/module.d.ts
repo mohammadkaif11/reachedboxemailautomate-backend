@@ -58,3 +58,58 @@ export interface sendEmail {
   label: string;
   account: Account;
 }
+
+
+export interface QueueInputDataInterface {
+ accoundId:number
+}
+
+export interface OutLookMail {
+  id: string;
+  subject: string;
+  bodyPreview: string;
+  body: {
+    contentType: string;
+    content: string;
+  };
+  sender: {
+    emailAddress: {
+      name: string;
+      address: string;
+    };
+  };
+  from: {
+    emailAddress: {
+      name: string;
+      address: string;
+    };
+  };
+  toRecipients: Array<{
+    emailAddress: {
+      name: string;
+      address: string;
+    };
+  }>;
+  receivedDateTime: string;
+  sentDateTime: string;
+  isRead: boolean;
+  hasAttachments: boolean;
+  webLink: string;
+  internetMessageId: string;
+}
+
+export interface OutLookMailWithCategory {
+  id: string;
+  subject: string;
+  bodyPreview: string;
+  sender: {
+    emailAddress: {
+      name: string;
+      address: string;
+    };
+  };
+  receivedDateTime: string;
+  label: string;
+}
+
+
