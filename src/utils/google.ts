@@ -2,8 +2,8 @@ import { gmail_v1, google } from "googleapis";
 import { getMailbyMessageId, saveExtractMails } from "./database";
 import { createMessage, extractEmailAddress } from "./helper";
 import { getCategoryOfMail, writeEmail } from "./open-ai";
-import { addEmailsInMailQueue, mailQueue } from "../worker/queue";
-import { CreateJOBQueueSendReplyInputType, MailType } from "../module";
+import { addMailIntoQueue, taskQueue } from "../worker/queue";
+import { Mail, SendReplyJobInputData } from "../module";
 
 export const extractGoogleMail = async (
   refresh_token: string | null,
@@ -100,8 +100,8 @@ export const sendingGoogleMail = async (
   }
 };
 
-export const generateEmailsAndSaveIntoQueue = (
-  data: CreateJOBQueueSendReplyInputType
+export const  generateEmailsAndSaveIntoQueue =async (
+  data: SendReplyJobInputData
 ) => {
   const interestedMails = data.mails;
   const user = data.user;
@@ -128,7 +128,7 @@ export const generateEmailsAndSaveIntoQueue = (
         user: user,
       };
 
-      await addEmailsInMailQueue(queueData);
+      await addMailIntoQueue(queueData);
     } catch (error) {
       console.error(
         `[generateEmailsAndSaveIntoQueue] Error processing mail for ${interestedMail.email}:`,
@@ -138,7 +138,7 @@ export const generateEmailsAndSaveIntoQueue = (
   });
 };
 
-export const FilterIntrestedMail = (gmails: MailType[]) => {
+export const FilterIntrestedMail = (gmails: Mail[]) => {
   const InterestedGmail = gmails.filter(
     (gmail) => gmail?.label === "Interested"
   );
@@ -216,9 +216,3 @@ const getEachGmailInDetail = async (
   );
   return mailDetails;
 };
-
-const filterNullGmail = (gmails: MailType[]) => {
-  const validGmail = gmails.filter((gmail) => gmail !== null);
-  return validGmail;
-};
-

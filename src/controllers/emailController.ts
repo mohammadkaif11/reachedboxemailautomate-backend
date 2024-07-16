@@ -7,7 +7,6 @@ import {
   deleteFetchEmailsJob,
 } from "../worker/queue";
 import {
-  CreateJOBQueueFetchEmailsInput,
   SendMailAPIRequestBody,
 } from "../module";
 import { saveMailReply } from "../utils/database";
@@ -116,7 +115,7 @@ export const sendEmailToUser = async (req: Request, res: Response) => {
     if (data.AIResponse.mail.account.type == "Gmail") {
       //Send email to user
       await sendingGoogleMail(
-        data.AIResponse.mail.account.refresh_token,
+        data.AIResponse.mail.account.refresh_token as string,
         data.AIResponse.mail.email,
         data.AIResponse.mail.account.email,
         data.AIResponse.data.subject,
@@ -130,19 +129,21 @@ export const sendEmailToUser = async (req: Request, res: Response) => {
       );
       //save reply Mail In Database
     } else if (data.AIResponse.mail.account.type == "Outlook") {
+
       await sendingOutLookiEmail(
-        data.AIResponse.mail.account.access_token,
+        data.AIResponse.mail.account.access_token as string,
         data.AIResponse.mail.email,
         data.AIResponse.data.subject,
         data.AIResponse.data.content
       );
+
       await saveMailReply(
         data.AIResponse.mail.email,
         data.AIResponse.mail.account.id,
         data.AIResponse.data.subject,
         data.AIResponse.data.content
       );
-      // handle other email providers
+      
     }else{
       console.log("Not Provider exists")
     }

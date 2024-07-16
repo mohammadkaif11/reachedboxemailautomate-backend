@@ -1,13 +1,6 @@
-export type CreateJOBQueueFetchEmailsInput = {
-  id: number;
-  accessToken: string;
-  refreshToken: string;
-  type: string;
-  mail: string;
-  autoSend: boolean;
-};
+import { Account } from "@prisma/client";
 
-export type MailType = {
+export type Mail = {
   messageId: string;
   from: string;
   subject: string;
@@ -16,37 +9,24 @@ export type MailType = {
   label: string;
 };
 
-export type CreateJOBQueueSendReplyInputType = {
-  mails: MailType[];
-  user: CreateJOBQueueFetchEmailsInput;
-};
 
-export type AddMAILINQUEUE = {
+
+export interface FetchEmailsJobInputData {
+  accoundId: number;
+}
+
+export interface SendReplyJobInputData {
+  mails: Mail[];
+  user: Account;
+}
+
+export type MaiLReplyJobInputData = {
   fromEmail: string;
   subject: string;
   content: string;
-  user: CreateJOBQueueFetchEmailsInput;
+  user: Account;
 };
 
-export interface Account {
-  id: number;
-  email: string;
-  name: string;
-  access_token: string;
-  refresh_token: string;
-  type: string;
-  autoSend: boolean;
-}
-
-export interface SendMailAPIRequestBody {
-  AIResponse: {
-    data: {
-      content: string;
-      subject: string;
-    };
-    mail: sendEmail;
-  };
-}
 
 export interface sendEmail {
   id: string;
@@ -59,9 +39,14 @@ export interface sendEmail {
   account: Account;
 }
 
-
-export interface QueueInputDataInterface {
- accoundId:number
+export interface SendMailAPIRequestBody {
+  AIResponse: {
+    data: {
+      content: string;
+      subject: string;
+    };
+    mail: sendEmail;
+  };
 }
 
 export interface OutLookMail {
@@ -111,5 +96,3 @@ export interface OutLookMailWithCategory {
   receivedDateTime: string;
   label: string;
 }
-
-

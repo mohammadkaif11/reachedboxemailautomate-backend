@@ -5,17 +5,17 @@ import {
   generateEmailsAndSaveIntoQueue,
 } from "../utils/google";
 import {
-  CreateJOBQueueFetchEmailsInput,
-  MailType,
-  CreateJOBQueueSendReplyInputType,
-  AddMAILINQUEUE,
-  QueueInputDataInterface,
+  MaiLReplyJobInputData,
+  FetchEmailsJobInputData,
+  Mail,
+  SendReplyJobInputData,
 } from "../module";
 const REDIS_URL =
   "rediss://red-cps056l6l47c73dtg8tg:4pyDNHpRV4WcxdUIg1N58rTTy35Yk5A8@oregon-redis.render.com:6379";
 import { Queue, Worker } from "bullmq";
 import { db } from "../utils/db";
 import { extractOutlookMail, getIntrestedMail } from "../utils/outlook";
+import { Account } from "@prisma/client";
 
 export const Redisconnection = new Redis(REDIS_URL, {
   maxRetriesPerRequest: null,
@@ -25,12 +25,8 @@ export const taskQueue = new Queue("taskQueue", {
   connection: Redisconnection,
 });
 
-export const mailQueue = new Queue("mailQueue", {
-  connection: Redisconnection,
-});
-
 export async function addFetchEmailsJobInterval(accoundId: number) {
-  const queueData: QueueInputDataInterface = {
+  const queueData: FetchEmailsJobInputData = {
     accoundId: accoundId,
   };
   await taskQueue.add("fetchEmails", queueData, {
@@ -57,18 +53,15 @@ export async function deleteFetchEmailsJob(jobId: string) {
   }
 }
 
-export async function addSendReplyJob(
-  queueData: MailType[],
-  userData: CreateJOBQueueFetchEmailsInput
-) {
+export async function addSendReplyJob( mails: Mail[],userData: Account) {
   await taskQueue.add("sendReply", {
-    mails: queueData,
+    mails: mails,
     user: userData,
   });
 }
 
-export async function addEmailsInMailQueue(queueData: AddMAILINQUEUE) {
-  mailQueue.add("addMail", queueData);
+export async function addMailIntoQueue(queueData: MaiLReplyJobInputData) {
+  taskQueue.add("addMail", queueData);
 }
 
 const taskWorker = new Worker(
@@ -76,33 +69,45 @@ const taskWorker = new Worker(
   async (job) => {
     try {
       switch (job.name) {
-        case "fetchEmails":
-          const queueData: QueueInputDataInterface = job.data;
-          const account=await db.account.findUnique({where:{id:queueData.accoundId}});
+        case "fetchEmails": {
+          const queueData: FetchEmailsJobInputData = job.data;
+          const account = await db.account.findUnique({
+            where: { id: queueData.accoundId },
+          });
           if (account?.type == "Gmail") {
-            console.log('Task worker in gmail process')
-            const mail = await extractGoogleMail(account?.refresh_token,account?.id);
-            const intrestedMail= FilterIntrestedMail(mail);
+            const mail = await extractGoogleMail(
+              account?.refresh_token,
+              account?.id
+            );
+            const intrestedMail = FilterIntrestedMail(mail);
 
             //If Queue data auto send true then add into queue
             if (intrestedMail.length > 0 && account.autoSend) {
-
+              addSendReplyJob(intrestedMail, account);
             }
           } else if (account?.type == "Outlook") {
-            console.log('Task worker in outlook process')
-            const mail=await extractOutlookMail(account.id,account?.access_token);
-            const intrestedMail=await getIntrestedMail(mail)
+            const mail = await extractOutlookMail(
+              account.id,
+              account?.access_token
+            );
+            const intrestedMail = await getIntrestedMail(mail);
             //Push all IntrestedMail into queue
-            if(intrestedMail.length > 0 && account.autoSend) {
-
+            if (intrestedMail.length > 0 && account.autoSend) {
+              addSendReplyJob(intrestedMail, account);
             }
           }
-          // for any provider
           break;
-        case "sendReply":
-          const queueInput: CreateJOBQueueSendReplyInputType = job.data;
+        }
+        case "sendReply": {
+          const queueInput: SendReplyJobInputData = job.data;
           generateEmailsAndSaveIntoQueue(queueInput);
           break;
+        }
+
+        case "addMail": {
+          console.log('[Add Mail]:' ,job.data);
+        }
+
         default:
           console.error(`Unhandled job type: ${job.name}`);
           break;
@@ -120,31 +125,4 @@ taskWorker.on("failed", (job, err) => {
 
 taskWorker.on("completed", (job) => {
   console.log(`taskWorker Job ${job.name} completed successfully`);
-});
-
-const mailWorker = new Worker(
-  "mailQueue",
-  async (job) => {
-    try {
-      switch (job.name) {
-        case "addMail":
-          //Send mail reply automate
-          break;
-        default:
-          console.error(`Unhandled job type: ${job.name}`);
-          break;
-      }
-    } catch (error) {
-      console.error(`Job ${job.id} failed with error:`, error);
-    }
-  },
-  { connection: Redisconnection }
-);
-
-mailWorker.on("failed", (job, err) => {
-  console.error(`mailWorker Job ${job?.name} failed with error ${err.message}`);
-});
-
-mailWorker.on("completed", (job) => {
-  console.log(`mailWorker Job ${job.name} completed successfully`);
 });

@@ -1,4 +1,4 @@
-import { MailType, OutLookMail, OutLookMailWithCategory } from "../module";
+import { Mail, OutLookMail, OutLookMailWithCategory } from "../module";
 import { getMailbyMessageId, saveExtractMails } from "./database";
 import { db } from "./db";
 import { getCategoryOfMail } from "./open-ai";
@@ -11,6 +11,7 @@ export const extractOutlookMail = async (
     if (!access_token) {
       throw new Error("Access token not found");
     }
+    
     const currentTime = new Date().toISOString();
     const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString();
 
@@ -47,8 +48,21 @@ export const extractOutlookMail = async (
           };
         })
       );
+
       await saveOutLookMailInDB(mailsWithCategory, accountId);
-      return mailsWithCategory;
+
+      const outLookMail: Mail[] = mailsWithCategory.map((mail) => {
+        return {
+          messageId: mail.id,
+          from: `${mail.sender.emailAddress.name} <${mail.sender.emailAddress.address}>`,
+          subject: mail.subject,
+          snippet: mail.bodyPreview,
+          email: mail.sender.emailAddress.address,
+          label: mail.label,
+        };
+      });
+      
+      return outLookMail;
     } else {
       throw new Error(
         `Failed to retrieve outlook emails. Status code: ${response.status}`
@@ -62,7 +76,7 @@ export const extractOutlookMail = async (
   }
 };
 
-export const getIntrestedMail = async (mails: OutLookMailWithCategory[]) => {
+export const getIntrestedMail = async (mails: Mail[]) => {
   const InterestedMails = mails.filter((mail) => mail?.label === "Interested");
   return InterestedMails;
 };
@@ -120,7 +134,7 @@ const saveOutLookMailInDB = async (
   mails: OutLookMailWithCategory[],
   accountId: number
 ) => {
-  const outLookMailSaveData: MailType[] = mails.map((mail) => {
+  const outLookMailSaveData: Mail[] = mails.map((mail) => {
     return {
       messageId: mail.id,
       from: `${mail.sender.emailAddress.name} <${mail.sender.emailAddress.address}>`,

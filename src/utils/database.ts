@@ -1,7 +1,7 @@
-import { MailType } from "../module";
+import { Mail } from "../module";
 import { db } from "./db";
 
-export async function saveExtractMails(mails: MailType[], accountId: number) {
+export async function saveExtractMails(mails: Mail[], accountId: number) {
   try {
     if (mails.length === 0) {
       console.log("[saveExtractMails] No mails to save.");
