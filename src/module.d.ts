@@ -9,8 +9,6 @@ export type Mail = {
   label: string;
 };
 
-
-
 export interface FetchEmailsJobInputData {
   accoundId: number;
 }
@@ -21,10 +19,8 @@ export interface SendReplyJobInputData {
 }
 
 export type MaiLReplyJobInputData = {
-  fromEmail: string;
-  subject: string;
-  content: string;
-  user: Account;
+  mail:Mail;
+  account: Account;
 };
 
 

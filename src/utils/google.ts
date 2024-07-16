@@ -100,43 +100,39 @@ export const sendingGoogleMail = async (
   }
 };
 
-export const  generateEmailsAndSaveIntoQueue =async (
-  data: SendReplyJobInputData
-) => {
-  const interestedMails = data.mails;
-  const user = data.user;
+// export const  generateEmailsAndSaveIntoQueue =async (
+//   data: SendReplyJobInputData
+// ) => {
+//   const interestedMails = data.mails;
+//   const user = data.user;
 
-  interestedMails.forEach(async (interestedMail) => {
-    try {
-      const mailContentString = await writeEmail(
-        interestedMail.snippet,
-        interestedMail.subject,
-        interestedMail.from
-      );
+//   interestedMails.forEach(async (interestedMail) => {
+//     try {
+//       const mailContentString = await writeEmail(interestedMail.snippet,interestedMail.subject,interestedMail.from);
 
-      if (!mailContentString) {
-        throw new Error("Mail contnent not found");
-      }
+//       if (!mailContentString) {
+//         throw new Error("Mail contnent not found");
+//       }
 
-      const sanitizedMailString = mailContentString.replace(/\n/g, "\\n");
-      const parseGeneratedMail = JSON.parse(sanitizedMailString);
+//       const sanitizedMailString = mailContentString.replace(/\n/g, "\\n");
+//       const parseGeneratedMail = JSON.parse(sanitizedMailString);
 
-      const queueData = {
-        fromEmail: interestedMail.email,
-        subject: parseGeneratedMail.subject as string,
-        content: parseGeneratedMail.content as string,
-        user: user,
-      };
+//       const queueData = {
+//         fromEmail: interestedMail.email,
+//         subject: parseGeneratedMail.subject as string,
+//         content: parseGeneratedMail.content as string,
+//         user: user,
+//       };
 
-      await addMailIntoQueue(queueData);
-    } catch (error) {
-      console.error(
-        `[generateEmailsAndSaveIntoQueue] Error processing mail for ${interestedMail.email}:`,
-        error
-      );
-    }
-  });
-};
+//       await addMailIntoQueue(queueData);
+//     } catch (error) {
+//       console.error(
+//         `[generateEmailsAndSaveIntoQueue] Error processing mail for ${interestedMail.email}:`,
+//         error
+//       );
+//     }
+//   });
+// };
 
 export const FilterIntrestedMail = (gmails: Mail[]) => {
   const InterestedGmail = gmails.filter(

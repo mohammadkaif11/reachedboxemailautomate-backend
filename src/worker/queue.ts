@@ -1,14 +1,9 @@
 import Redis from "ioredis";
-import {
-  extractGoogleMail,
-  FilterIntrestedMail,
-  generateEmailsAndSaveIntoQueue,
-} from "../utils/google";
+import { extractGoogleMail, FilterIntrestedMail } from "../utils/google";
 import {
   MaiLReplyJobInputData,
   FetchEmailsJobInputData,
   Mail,
-  SendReplyJobInputData,
 } from "../module";
 const REDIS_URL =
   "rediss://red-cps056l6l47c73dtg8tg:4pyDNHpRV4WcxdUIg1N58rTTy35Yk5A8@oregon-redis.render.com:6379";
@@ -53,15 +48,8 @@ export async function deleteFetchEmailsJob(jobId: string) {
   }
 }
 
-export async function addSendReplyJob( mails: Mail[],userData: Account) {
-  await taskQueue.add("sendReply", {
-    mails: mails,
-    user: userData,
-  });
-}
-
 export async function addMailIntoQueue(queueData: MaiLReplyJobInputData) {
-  taskQueue.add("addMail", queueData);
+  await taskQueue.add("addMail", queueData);
 }
 
 const taskWorker = new Worker(
@@ -83,7 +71,13 @@ const taskWorker = new Worker(
 
             //If Queue data auto send true then add into queue
             if (intrestedMail.length > 0 && account.autoSend) {
-              addSendReplyJob(intrestedMail, account);
+              for (const mail of intrestedMail) {
+                const obj: MaiLReplyJobInputData = {
+                  mail: mail,
+                  account: account,
+                };
+                await addMailIntoQueue(obj);
+              }
             }
           } else if (account?.type == "Outlook") {
             const mail = await extractOutlookMail(
@@ -93,19 +87,21 @@ const taskWorker = new Worker(
             const intrestedMail = await getIntrestedMail(mail);
             //Push all IntrestedMail into queue
             if (intrestedMail.length > 0 && account.autoSend) {
-              addSendReplyJob(intrestedMail, account);
+              for (const mail of intrestedMail) {
+                const obj: MaiLReplyJobInputData = {
+                  mail: mail,
+                  account: account,
+                };
+                await addMailIntoQueue(obj);
+              }
             }
           }
           break;
         }
-        case "sendReply": {
-          const queueInput: SendReplyJobInputData = job.data;
-          generateEmailsAndSaveIntoQueue(queueInput);
-          break;
-        }
 
         case "addMail": {
-          console.log('[Add Mail]:' ,job.data);
+          const inputData: MaiLReplyJobInputData = job.data;
+          console.log("[Add Mail Job]: " + inputData);
         }
 
         default:

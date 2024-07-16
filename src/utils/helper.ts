@@ -1,3 +1,8 @@
+import { MaiLReplyJobInputData } from "../module";
+import { sendingGoogleMail } from "./google";
+import { writeEmail } from "./open-ai";
+import { sendingOutLookiEmail } from "./outlook";
+
 export function extractEmailAddress(input: string): string | null {
   const regex = /<([^>]+)>/;
 
@@ -29,4 +34,45 @@ export async function createMessage(
     .replace(/\//g, "_")
     .replace(/=+$/, "");
   return encodedEmail;
+}
+
+export async function genrateEmailReplyandSendToUser(
+  data: MaiLReplyJobInputData
+) {
+  try {
+    const interestedMail = data.mail;
+    const user = data.account;
+
+    const mailContentString = await writeEmail(
+      interestedMail.snippet,
+      interestedMail.subject,
+      interestedMail.from
+    );
+
+    if (!mailContentString) {
+      throw new Error("Mail contnent not found");
+    }
+
+    const sanitizedMailString = mailContentString.replace(/\n/g, "\\n");
+    const parseGeneratedMail = JSON.parse(sanitizedMailString);
+
+    if (user.type == "Gmail") {
+      await sendingGoogleMail(
+        user.refresh_token as string,
+        interestedMail.email,
+        user.email,
+        parseGeneratedMail.subject as string,
+        parseGeneratedMail.content as string
+      );
+    } else if (user.type == "OutLook") {
+      await sendingOutLookiEmail(
+        user.access_token as string,
+        interestedMail.email,
+        parseGeneratedMail.subject as string,
+        parseGeneratedMail.content as string
+      );
+    }
+  } catch (error) {
+    console.log("[Error in genrateEmailReplyandSendToUser()]: " + error);
+  }
 }

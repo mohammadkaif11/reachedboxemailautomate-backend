@@ -121,8 +121,6 @@ export const sendingOutLookiEmail = async (
       console.log(errorMessage)
       throw new Error(`Error sending email: ${response.statusText}`);
     }
-
-
     console.log("[Sucesssfully send mail outlook]");
   } catch (error) {
     console.error("[Send outlook mail] Error:", error);

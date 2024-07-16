@@ -47,9 +47,11 @@ export const getMailReply = async (req: Request, res: Response) => {
 export const updateAutoSend = async (req: Request, res: Response) => {
   try {
     const { id, autoSend } = req.body;
+
     if (!id || autoSend == null) {
       throw new Error("Id and autoSend are required");
     }
+    
     const accountdb = await db.account.findFirst({ where: { id: id } });
 
     if (!accountdb) {
