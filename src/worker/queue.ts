@@ -11,6 +11,7 @@ import { Queue, Worker } from "bullmq";
 import { db } from "../utils/db";
 import { extractOutlookMail, getIntrestedMail } from "../utils/outlook";
 import { Account } from "@prisma/client";
+import { genrateEmailReplyandSendToUser } from "../utils/helper";
 
 export const Redisconnection = new Redis(REDIS_URL, {
   maxRetriesPerRequest: null,
@@ -62,12 +63,15 @@ const taskWorker = new Worker(
           const account = await db.account.findUnique({
             where: { id: queueData.accoundId },
           });
+          console.log("[Account Type]: " + account?.type);
+
           if (account?.type == "Gmail") {
             const mail = await extractGoogleMail(
               account?.refresh_token,
               account?.id
             );
             const intrestedMail = FilterIntrestedMail(mail);
+            console.log('[Google Intrested Mail]', intrestedMail)
 
             //If Queue data auto send true then add into queue
             if (intrestedMail.length > 0 && account.autoSend) {
@@ -76,6 +80,7 @@ const taskWorker = new Worker(
                   mail: mail,
                   account: account,
                 };
+                console.log('[Google Intrested Mail added Queue]', obj)
                 await addMailIntoQueue(obj);
               }
             }
@@ -85,6 +90,9 @@ const taskWorker = new Worker(
               account?.access_token
             );
             const intrestedMail = await getIntrestedMail(mail);
+
+            console.log('[Outlook Intrested Mail]', intrestedMail)
+
             //Push all IntrestedMail into queue
             if (intrestedMail.length > 0 && account.autoSend) {
               for (const mail of intrestedMail) {
@@ -92,6 +100,7 @@ const taskWorker = new Worker(
                   mail: mail,
                   account: account,
                 };
+                console.log('[Google Intrested Mail added Queue]', obj)
                 await addMailIntoQueue(obj);
               }
             }
@@ -101,7 +110,9 @@ const taskWorker = new Worker(
 
         case "addMail": {
           const inputData: MaiLReplyJobInputData = job.data;
-          console.log("[Add Mail Job]: " + inputData);
+          console.log("[Add Mail Job]: " , inputData);
+          await genrateEmailReplyandSendToUser(inputData);
+          break;
         }
 
         default:

@@ -1,4 +1,6 @@
+import { parse } from "dotenv";
 import { MaiLReplyJobInputData } from "../module";
+import { saveMailReply } from "./database";
 import { sendingGoogleMail } from "./google";
 import { writeEmail } from "./open-ai";
 import { sendingOutLookiEmail } from "./outlook";
@@ -72,6 +74,13 @@ export async function genrateEmailReplyandSendToUser(
         parseGeneratedMail.content as string
       );
     }
+   await saveMailReply(
+      interestedMail.email,
+      user.id,
+      parseGeneratedMail.subject,
+      parseGeneratedMail.content
+    );
+    console.log('[reply send successfully]')
   } catch (error) {
     console.log("[Error in genrateEmailReplyandSendToUser()]: " + error);
   }
